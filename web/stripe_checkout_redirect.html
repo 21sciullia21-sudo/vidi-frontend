@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Redirecting to Stripe…</title>
+    <style>
+      html, body { height: 100%; margin: 0; }
+      body { display: flex; align-items: center; justify-content: center; font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; }
+      .box { max-width: 520px; padding: 24px; text-align: center; }
+      .muted { color: #666; font-size: 14px; margin-top: 8px; }
+      a { color: #2c7be5; text-decoration: none; }
+      a:hover { text-decoration: underline; }
+    </style>
+    <script src="https://js.stripe.com/v3/"></script>
+  </head>
+  <body>
+    <div class="box">
+      <h3>Redirecting to secure checkout…</h3>
+      <p class="muted" id="status">Please wait. If nothing happens, click the link below.</p>
+      <p><a id="manualLink" href="#" rel="noopener">Open Checkout</a></p>
+    </div>
+
+    <script>
+      (async function () {
+        try {
+          const params = new URLSearchParams(window.location.search);
+          const sessionId = params.get('sid');
+          const pk = params.get('pk');
+
+          const statusEl = document.getElementById('status');
+          const manualLink = document.getElementById('manualLink');
+
+          if (!sessionId || !pk) {
+            statusEl.textContent = 'Missing session information. Please try again.';
+            return;
+          }
+
+          // Fallback direct link uses the canonical Checkout URL. This may not work
+          // without Stripe’s security hash, but is provided as a last resort.
+          const directUrl = `https://checkout.stripe.com/c/pay/${sessionId}`;
+          manualLink.href = directUrl;
+          manualLink.target = '_blank';
+
+          const stripe = Stripe(pk);
+          statusEl.textContent = 'Contacting Stripe…';
+
+          const { error } = await stripe.redirectToCheckout({ sessionId });
+          if (error) {
+            console.warn('Stripe redirectToCheckout error:', error);
+            statusEl.textContent = 'We could not automatically redirect. Use the link above to continue.';
+          }
+        } catch (e) {
+          console.error('Redirect bootstrap failed', e);
+          const statusEl = document.getElementById('status');
+          statusEl.textContent = 'Unexpected error. Please close this tab and try again.';
+        }
+      })();
+    </script>
+  </body>
+  </html>

@@ -1,0 +1,15 @@
+[functions."create-checkout-session"]
+enabled = true
+verify_jwt = true
+entrypoint = "./create-checkout-session/index.ts"
+
+[functions."stripe-webhook"]
+enabled = true
+# Stripe cannot attach a Supabase JWT to webhooks. Disable JWT verification.
+verify_jwt = false
+entrypoint = "./stripe-webhook/index.ts"
+
+[functions."create-payment-intent"]
+enabled = true
+verify_jwt = true
+entrypoint = "./create-payment-intent/index.ts"
