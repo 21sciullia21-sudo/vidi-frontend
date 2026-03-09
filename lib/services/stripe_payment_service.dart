@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'package:url_launcher/url_launcher.dart'; // This replaces flutter_stripe
-import 'package:vidi/config/stripe_config.dart';
+import 'package:flutter_stripe/flutter_stripe.dart'; // We are bringing the native Stripe UI back!
 
 class StripePaymentService {
-  /// Creates a Stripe Checkout Session via Vercel Serverless Function
-  /// Returns the checkout URL (taking the place of the old client secret)
+  /// Asks Vercel for the secret code to open the payment sheet
   static Future<String?> createPaymentIntent({
     required double amount,
     required String currency,
@@ -18,6 +16,7 @@ class StripePaymentService {
       // Convert amount to cents (Stripe uses smallest currency unit)
       final amountInCents = (amount * 100).round();
       
+      // Pointing to your TRUE backend!
       final url = Uri.parse('https://vidi-upload.vercel.app/api/checkout');
       
       final response = await http.post(
@@ -34,38 +33,48 @@ class StripePaymentService {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        // We grab the 'url' from Vercel, but return it as a string 
-        // so your existing UI code doesn't break
-        if (data['url'] != null) {
-          return data['url'] as String;
+        
+        // FIX: Grab the 'clientSecret' instead of the 'url'
+        if (data['clientSecret'] != null) {
+          return data['clientSecret'] as String;
         }
       }
       
-      print('Failed to create checkout session: ${response.body}');
+      print('Failed to create payment intent: ${response.body}');
       return null;
     } catch (e) {
-      print('Error creating checkout session: $e');
+      print('Error creating payment intent: $e');
       return null;
     }
   }
   
-  /// Opens the Stripe web checkout instead of the native payment sheet
+  /// Opens the native Stripe Payment Sheet pop-up
   static Future<bool> presentPaymentSheet({
-    required String clientSecret, // This variable now secretly holds the URL
-    required String customerEmail, // Kept so your UI doesn't throw an error
+    required String clientSecret,
+    required String customerEmail, 
   }) async {
     try {
-      // Launch the URL in the device's default browser
-      final Uri url = Uri.parse(clientSecret);
+      // 1. Initialize the Payment Sheet with the secret code from Vercel
+      await Stripe.instance.initPaymentSheet(
+        paymentSheetParameters: SetupPaymentSheetParameters(
+          paymentIntentClientSecret: clientSecret,
+          merchantDisplayName: 'Vidiplanet', 
+          // Set to true if you are using test keys:
+          testEnv: true, 
+        ),
+      );
+
+      // 2. Present the pop-up to the user
+      await Stripe.instance.presentPaymentSheet();
       
-      if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
-        print('Could not launch Stripe Checkout at $clientSecret');
-        return false;
-      }
+      // If it reaches this line without crashing, the payment was successful!
+      return true; 
       
-      return true;
+    } on StripeException catch (e) {
+      print('Stripe Error: ${e.error.localizedMessage}');
+      return false;
     } catch (e) {
-      print('Error opening checkout browser: $e');
+      print('Error presenting payment sheet: $e');
       return false;
     }
   }
