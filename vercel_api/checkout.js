@@ -32,13 +32,23 @@ module.exports = async (req, res) => {
         },
       ],
       mode: 'payment',
-      success_url: 'https://www.vidiplanet.com/success',
+      
+      // FIX 1: Pass the session ID back to Vidiplanet so your frontend can verify it!
+      success_url: 'https://www.vidiplanet.com/success?session_id={CHECKOUT_SESSION_ID}',
       cancel_url: 'https://www.vidiplanet.com/cancel',
+      
+      // FIX 2: Put metadata at the top level so your webhook can actually read it
+      metadata: {
+        assetIds: assetIdString,
+        buyerId: buyerId,
+      },
+
       payment_intent_data: {
         application_fee_amount: applicationFeeAmount,
         transfer_data: {
           destination: sellerStripeAccountId,
         },
+        // It's good practice to keep a copy here so it shows up on your Stripe dashboard receipts
         metadata: {
           assetIds: assetIdString,
           buyerId: buyerId,
