@@ -34,13 +34,13 @@ module.exports = async (req, res) => {
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
 
-  // FIX: Listen for the new Checkout Session event
-  if (event.type === 'checkout.session.completed') {
-    const session = event.data.object;
+  // FIX: Listen for Payment Intents again!
+  if (event.type === 'payment_intent.succeeded') {
+    const paymentIntent = event.data.object;
     
-    // Grab the custom data attached to the checkout
-    const assetIds = session.metadata?.assetIds;
-    const buyerId = session.metadata?.buyerId;
+    // Grab the custom data attached to the pop-up
+    const assetIds = paymentIntent.metadata?.assetIds;
+    const buyerId = paymentIntent.metadata?.buyerId;
 
     if (assetIds && buyerId) {
       const assetIdList = assetIds.split(',');
@@ -49,9 +49,9 @@ module.exports = async (req, res) => {
         const purchases = assetIdList.map(assetId => ({
           user_id: buyerId,
           asset_id: assetId.trim(),
-          stripe_session_id: session.id, // FIX: Matches what your frontend is looking for!
-          amount: Math.round(session.amount_total / assetIdList.length), 
-          currency: session.currency || 'usd',
+          stripe_session_id: paymentIntent.id, // We'll save the "pi_..." ID here so we don't have to change your database again!
+          amount: Math.round(paymentIntent.amount / assetIdList.length), 
+          currency: paymentIntent.currency || 'usd',
           status: 'completed',
           purchased_at: new Date().toISOString(),
         }));
@@ -70,8 +70,6 @@ module.exports = async (req, res) => {
         console.error('Error inserting into Supabase:', err);
         return res.status(500).json({ error: 'Internal Server Error' });
       }
-    } else {
-        console.error('Webhook fired, but metadata was missing!');
     }
   }
 
