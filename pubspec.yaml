@@ -9,6 +9,7 @@ environment:
 
 dependencies:
   flutter_stripe: ^12.0.0
+  flutter_stripe_web: ^5.1.0
   video_player: '>=2.9.2'
   uuid: ^4.0.0
   image_picker: '>=1.1.2'
