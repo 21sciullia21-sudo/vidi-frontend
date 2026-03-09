@@ -7,7 +7,7 @@ module.exports = async (req, res) => {
   }
 
   try {
-    const { assetIds, buyerId, sellerStripeAccountId, amount, currency = 'usd', assetName } = req.body;
+    const { assetIds, buyerId, sellerStripeAccountId, amount, currency = 'usd' } = req.body;
 
     if (!assetIds || !buyerId || !sellerStripeAccountId || !amount) {
       return res.status(400).json({ error: 'Missing required parameters' });
@@ -16,52 +16,28 @@ module.exports = async (req, res) => {
     const assetIdString = Array.isArray(assetIds) ? assetIds.join(',') : assetIds;
     const applicationFeeAmount = Math.round(amount * 0.10); // 10% Platform Fee
 
-    // Create a Checkout Session instead of a PaymentIntent
-    const session = await stripe.checkout.sessions.create({
+    // FIX: Create a PaymentIntent instead of a Checkout Session
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: amount,
+      currency: currency,
       payment_method_types: ['card'],
-      line_items: [
-        {
-          price_data: {
-            currency: currency,
-            product_data: {
-              name: assetName || 'Digital Asset Purchase',
-            },
-            unit_amount: amount,
-          },
-          quantity: 1,
-        },
-      ],
-      mode: 'payment',
-      
-      // FIX 1: Pass the session ID back to Vidiplanet so your frontend can verify it!
-      success_url: 'https://www.vidiplanet.com/success?session_id={CHECKOUT_SESSION_ID}',
-      cancel_url: 'https://www.vidiplanet.com/cancel',
-      
-      // FIX 2: Put metadata at the top level so your webhook can actually read it
+      application_fee_amount: applicationFeeAmount,
+      transfer_data: {
+        destination: sellerStripeAccountId,
+      },
+      // Keep the metadata at the top level so the webhook can read it!
       metadata: {
         assetIds: assetIdString,
         buyerId: buyerId,
       },
-
-      payment_intent_data: {
-        application_fee_amount: applicationFeeAmount,
-        transfer_data: {
-          destination: sellerStripeAccountId,
-        },
-        // It's good practice to keep a copy here so it shows up on your Stripe dashboard receipts
-        metadata: {
-          assetIds: assetIdString,
-          buyerId: buyerId,
-        },
-      },
     });
 
-    // Return the URL so Flutter can open it
+    // Send the secret key back to open the in-app checkout screen
     res.status(200).json({
-      url: session.url,
+      clientSecret: paymentIntent.client_secret,
     });
   } catch (error) {
-    console.error('Error creating checkout session:', error);
+    console.error('Error creating payment intent:', error);
     res.status(500).json({ error: error.message });
   }
 };
