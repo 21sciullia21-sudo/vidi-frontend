@@ -18,7 +18,7 @@ class StripePaymentService {
       // Convert amount to cents (Stripe uses smallest currency unit)
       final amountInCents = (amount * 100).round();
       
-      final url = Uri.parse('https://vidi-backend-ivory.vercel.app/api/checkout');
+      final url = Uri.parse('https://vidi-upload.vercel.app/api/checkout');
       
       final response = await http.post(
         url,
